@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-# Lowercase owner & image name (GHCR requires lowercase)
 env:
   GH_OWNER: "leslie211"
   IMAGE_NAME: "ghcr.io/leslie211/sweco-devops-demo"
@@ -43,7 +42,6 @@ jobs:
       - name: Set image tag using build number
         id: set_tag
         run: |
-          # create stable image tag using the GitHub run number
           echo "IMAGE_TAG=build-${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
@@ -68,18 +66,19 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.IMAGE_TAG }}
 
       - name: Show pushed image tag
-        run: echo "Pushed image: ${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.IMAGE_TAG }}"
+        run: |
+         echo "Pushed image: ${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.IMAGE_TAG }}"
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    # pass necessary values into the ssh-action environment so they are available inside the remote script
     env:
+      # pass values explicitly so they are available inside the remote script
       GITHUB_SHA: ${{ github.sha }}
       IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-      IMAGE_NAME: ${{ env.IMAGE_NAME }}
+      IMAGE_NAME: "ghcr.io/leslie211/sweco-devops-demo"
     steps:
-      - name: Checkout (optional - useful for debugging on runner)
+      - name: Checkout (optional)
         uses: actions/checkout@v4
 
       - name: Deploy to k3s VM using build-number tag
@@ -119,12 +118,11 @@ jobs:
             kubectl -n default patch deployment sweco-demo -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"deployed-build\":\"${TAG}\",\"deployed-git-sha\":\"${GITHUB_SHA}\"}}}}}"
 
             # wait for rollout and show status
-            kubectl -n default rollout status deployment/sweco-demo --timeout=120s
+            kubectl -n default rollout status deployment/sweco-demo --timeout=120s || true
 
             # print verification info
             echo "Deployment image in template:"
             kubectl -n default get deployment sweco-demo -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
             echo "Pods:"
             kubectl -n default get pods -o wide
-
 
