@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 env:
-  IMAGE_NAME: ghcr.io/${{ toLower(github.repository_owner) }}/sweco-devops-demo
+  GH_OWNER: "leslie211"
+  IMAGE_NAME: ghcr.io/leslie211/sweco-devops-demo
 
 jobs:
   test:
