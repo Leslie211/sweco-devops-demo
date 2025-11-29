@@ -9,17 +9,14 @@ See folders:
 - ansible/    Ansible playbook to provision the Azure VM
 
 ## Quick start
-1. Create SSH key pair (see scripts/prepare-ssh.sh)
-2. Update ansible/inventory.ini with your VM IP and user
-3. Run Ansible from WSL to provision k3s:
+ Run Ansible from WSL to provision k3s:
    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml --become
 
 
-┌─────────────┐      ┌──────────────┐      ┌─────────────┐      ┌──────────────┐
-│  Developer  │────▶ │   GitHub     │────▶│   Docker    │────▶│  Kubernetes  │
-│  (You)      │      │   Actions    │      │   Registry  │      │   (k3s)      │
-└─────────────┘      └──────────────┘      └─────────────┘      └──────────────┘
-  git push            CI/CD Pipeline        Image Storage          Running App
+   git push               CI/CD Pipeline              Image Storage              Running App
+   
+   Developer  ────▶    GitHub  Actions   ────▶  Docker  Registry   ────▶  Kubernetes  (k3s) 
+                                                 
 
 ## **The Architecture:**
 ```
