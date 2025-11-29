@@ -5,6 +5,6 @@ describe('GET /', () => {
   it('returns hello message', async () => {
     const res = await request(app).get('/');
     expect(res.statusCode).toEqual(200);
-    expect(res.body).toHaveProperty('message', 'Hello from Sweco DevOps demo');
+    expect(res.body).toHaveProperty('message', 'Welcome to my awesome DevOps application!'); // Update this
   });
 });
