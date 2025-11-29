@@ -89,6 +89,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          envs: IMAGE_TAG,IMAGE_NAME,GITHUB_SHA  
           script: |
             set -euo pipefail
 
