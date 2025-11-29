@@ -42,7 +42,9 @@ jobs:
       - name: Set image tag using build number
         id: set_tag
         run: |
-          echo "IMAGE_TAG=build-${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
+          TAG="build-${GITHUB_RUN_NUMBER}"
+          echo "IMAGE_TAG=${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated tag: ${TAG}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -57,23 +59,22 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Build and push image (build-number tag)
+      - name: Build & push image
         uses: docker/build-push-action@v4
         with:
           context: ./app
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.IMAGE_TAG }}
+            ghcr.io/leslie211/sweco-devops-demo:${{ steps.set_tag.outputs.IMAGE_TAG }}
 
-      - name: Show pushed image tag
-        run: |
-         echo "Pushed image: ${{ env.IMAGE_NAME }}:${{ steps.set_tag.outputs.IMAGE_TAG }}"
+      - name: DEBUG – print output from this job
+        run: echo "Job output IMAGE_TAG = ${{ steps.set_tag.outputs.IMAGE_TAG }}"
+
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     env:
-      # pass values explicitly so they are available inside the remote script
       GITHUB_SHA: ${{ github.sha }}
       IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
       IMAGE_NAME: "ghcr.io/leslie211/sweco-devops-demo"
