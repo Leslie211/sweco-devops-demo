@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
       - name: sweco-demo
-        image: ghcr.io/leslie211/sweco-devops-demo:latest
+        image: ghcr.io/leslie211/sweco-devops-demo:placeholder
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
         readinessProbe:
