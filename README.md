@@ -13,3 +13,44 @@ See folders:
 2. Update ansible/inventory.ini with your VM IP and user
 3. Run Ansible from WSL to provision k3s:
    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory.ini ansible/playbook.yaml --become
+
+
+┌─────────────┐      ┌──────────────┐      ┌─────────────┐      ┌──────────────┐
+│  Developer  │────▶ │   GitHub     │────▶│   Docker    │────▶│  Kubernetes  │
+│  (You)      │      │   Actions    │      │   Registry  │      │   (k3s)      │
+└─────────────┘      └──────────────┘      └─────────────┘      └──────────────┘
+  git push            CI/CD Pipeline        Image Storage          Running App
+
+## **The Architecture:**
+```
+┌──────────────────────────────────────────────────────── ─┐
+│                     Azure VM (4.245.2.67)                │
+│  ┌─────────────────────────────────────────────────── ┐  │
+│  │              k3s Kubernetes Cluster                │  │
+│  │  ┌─────────────────────────────────────────────┐   │  │
+│  │  │         sweco-demo Deployment               │   │  │
+│  │  │  ┌──────────────┐    ┌──────────────┐       │   │  │
+│  │  │  │   Pod 1      │    │   Pod 2      │       │   │  │
+│  │  │  │              │    │              │       │   │  │
+│  │  │  │  Container:  │    │  Container:  │       │   │  │
+│  │  │  │  Node.js App │    │  Node.js App │       │   │  │
+│  │  │  │  Port: 3000  │    │  Port: 3000  │       │   │  │
+│  │  │  └──────────────┘    └──────────────┘       │   │  │
+│  │  └─────────────────────────────────────────────┘   │  │
+│  │                        ▲                           │  │
+│  │                        │                           │  │
+│  │  ┌─────────────────────┴───────────────────────┐   │  │
+│  │  │         sweco-demo-svc Service              │   │  │
+│  │  │  Type: LoadBalancer                         │   │  │
+│  │  │  NodePort: 32216                            │   │  │
+│  │  └─────────────────────────────────────────────┘   │  │
+│  └─────────────────────────────────────────────────── ┘  │
+└──────────────────────────────────────────────────────── ─┘
+                           ▲
+                           │
+                      Port 32216
+                           │
+                  ┌────────┴────────┐
+                  │   Internet      │
+                  │  Users/Clients  │
+                  └─────────────────┘
