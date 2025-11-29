@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sweco-demo
+  labels:
+    app: sweco-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sweco-demo
+  template:
+    metadata:
+      labels:
+        app: sweco-demo
+    spec:
+      containers:
+      - name: sweco-demo
+        image: ghcr.io/Leslie211/sweco-devops-demo:latest
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
