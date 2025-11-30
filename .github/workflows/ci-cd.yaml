@@ -16,16 +16,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
-
-      - name: Install deps
+      
+      - name: Install dependencies
         working-directory: ./app
         run: npm ci
-
+      
       - name: Run tests
         working-directory: ./app
         run: npm test
@@ -38,38 +38,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
       - name: Set image tag using build number
         id: set_tag
         run: |
           TAG="build-${GITHUB_RUN_NUMBER}"
           echo "IMAGE_TAG=${TAG}" >> $GITHUB_OUTPUT
           echo "Generated tag: ${TAG}"
-
+      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-
-      - name: Set up Buildx
+      
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+      
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Build & push image
+      
+      - name: Build and push image
         uses: docker/build-push-action@v4
         with:
           context: ./app
           push: true
           tags: |
             ghcr.io/leslie211/sweco-devops-demo:${{ steps.set_tag.outputs.IMAGE_TAG }}
-
-      - name: DEBUG – print output from this job
+      
+      - name: Debug - Print output from build job
         run: echo "Job output IMAGE_TAG = ${{ steps.set_tag.outputs.IMAGE_TAG }}"
-
 
   deploy:
     needs: build-and-push
@@ -79,52 +78,70 @@ jobs:
       IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
       IMAGE_NAME: "ghcr.io/leslie211/sweco-devops-demo"
     steps:
-      - name: Checkout (optional)
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Deploy to k3s VM using build-number tag
+      
+      - name: Copy K8s manifests to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "k8s/*"
+          target: "/tmp/k8s-deploy-${{ github.run_number }}"
+      
+      - name: Deploy to k3s VM
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          envs: IMAGE_TAG,IMAGE_NAME,GITHUB_SHA  
+          envs: IMAGE_TAG,IMAGE_NAME,GITHUB_SHA,GITHUB_RUN_NUMBER
           script: |
             set -euo pipefail
-
             TAG="$IMAGE_TAG"
             IMAGE="$IMAGE_NAME:${TAG}"
-
-            echo "Deploying image: ${IMAGE}"
-            echo "Run number (tag): ${TAG}"
-            echo "Commit: $GITHUB_SHA"
-
-            # ensure repo exists and is up-to-date on the VM
-            if [ ! -d ~/sweco-devops-demo ]; then
-              git clone https://github.com/${{ github.repository_owner }}/sweco-devops-demo.git ~/sweco-devops-demo
-            else
-              cd ~/sweco-devops-demo && git fetch --all && git reset --hard origin/main || true
-            fi
-            cd ~/sweco-devops-demo || true
-
-            # FIRST-TIME APPLY: create resources if missing (safe to re-run)
-            kubectl apply -f k8s/deployment.yaml
-            kubectl apply -f k8s/service.yaml
-            kubectl apply -f k8s/hpa.yaml || true
-
-            # update image to the immutable build-number tag
+            
+            echo "================================================"
+            echo "Deploying Sweco DevOps Demo"
+            echo "================================================"
+            echo "Image:        ${IMAGE}"
+            echo "Build tag:    ${TAG}"
+            echo "Commit SHA:   ${GITHUB_SHA}"
+            echo "Run number:   ${GITHUB_RUN_NUMBER}"
+            echo "================================================"
+            
+            # Apply/update K8s manifests
+            echo "Applying Kubernetes manifests..."
+            kubectl apply -f /tmp/k8s-deploy-${GITHUB_RUN_NUMBER}/k8s/deployment.yaml
+            kubectl apply -f /tmp/k8s-deploy-${GITHUB_RUN_NUMBER}/k8s/service.yaml
+            kubectl apply -f /tmp/k8s-deploy-${GITHUB_RUN_NUMBER}/k8s/hpa.yaml || true
+            
+            # Update deployment with new image tag
+            echo "Updating deployment image to ${IMAGE}..."
             kubectl -n default set image deployment/sweco-demo sweco-demo=${IMAGE}
-
-            # annotate deployment with metadata for auditing
-            kubectl -n default patch deployment sweco-demo -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"deployed-build\":\"${TAG}\",\"deployed-git-sha\":\"${GITHUB_SHA}\"}}}}}"
-
-            # wait for rollout and show status
-            kubectl -n default rollout status deployment/sweco-demo --timeout=120s || true
-
-            # print verification info
-            echo "Deployment image in template:"
-            kubectl -n default get deployment sweco-demo -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
-            echo "Pods:"
+            
+            # Annotate deployment with metadata
+            kubectl -n default patch deployment sweco-demo -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"deployed-build\":\"${TAG}\",\"deployed-git-sha\":\"${GITHUB_SHA}\",\"deployed-at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}}}}"
+            
+            # Wait for rollout to complete
+            echo "Waiting for rollout to complete..."
+            kubectl -n default rollout status deployment/sweco-demo --timeout=120s
+            
+            # Cleanup temp files
+            echo "Cleaning up temporary files..."
+            rm -rf /tmp/k8s-deploy-${GITHUB_RUN_NUMBER}
+            
+            # Verification
+            echo "================================================"
+            echo "Deployment complete"
+            echo "================================================"
+            echo "Deployed image:"
+            kubectl -n default get deployment sweco-demo -o jsonpath='{.spec.template.spec.containers[0].image}'
+            echo ""
+            echo ""
+            echo "Running pods:"
             kubectl -n default get pods -o wide
-
+            echo "================================================"
